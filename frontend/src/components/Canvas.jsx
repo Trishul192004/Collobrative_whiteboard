@@ -1,16 +1,14 @@
 import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react'
 
-const Canvas = forwardRef(({ tool, color, brushSize }, ref) => {
-  const canvasRef = useRef(null)        // direct reference to the canvas element
-  const isDrawing = useRef(false)       // is the mouse currently held down?
-  const lastPos = useRef({ x: 0, y: 0 }) // where was the mouse last frame?
-  const startPos = useRef({ x: 0, y: 0 }) // where did this stroke start? (for shapes)
-  const snapshot = useRef(null)         // snapshot of canvas before drawing shape
+const Canvas = forwardRef(({ tool, color, brushSize, sendDrawEvent, roomCode }, ref) => {
+  const canvasRef = useRef(null)
+  const isDrawing = useRef(false)
+  const lastPos = useRef({ x: 0, y: 0 })
+  const startPos = useRef({ x: 0, y: 0 })
+  const snapshot = useRef(null)
+  const [history, setHistory] = useState([])
+  const [historyIndex, setHistoryIndex] = useState(-1)
 
-  const [history, setHistory] = useState([])   // list of saved canvas states (for undo)
-  const [historyIndex, setHistoryIndex] = useState(-1) // where in history we are
-
-  // This exposes undo/redo to the parent component (App.jsx)
   useImperativeHandle(ref, () => ({
     undo() {
       if (historyIndex <= 0) return
@@ -37,10 +35,56 @@ const Canvas = forwardRef(({ tool, color, brushSize }, ref) => {
         ctx.drawImage(img, 0, 0)
       }
       setHistoryIndex(newIndex)
+    },
+
+    // This is called when we receive a draw event from another user
+    drawFromRemote(data) {
+      const canvas = canvasRef.current
+      const ctx = canvas.getContext('2d')
+      ctx.lineWidth = data.brushSize
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      ctx.strokeStyle = data.color
+
+      if (data.type === 'draw' && data.tool === 'pencil') {
+        ctx.globalCompositeOperation = 'source-over'
+        ctx.beginPath()
+        ctx.moveTo(data.from.x, data.from.y)
+        ctx.lineTo(data.to.x, data.to.y)
+        ctx.stroke()
+
+      } else if (data.type === 'draw' && data.tool === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out'
+        ctx.beginPath()
+        ctx.moveTo(data.from.x, data.from.y)
+        ctx.lineTo(data.to.x, data.to.y)
+        ctx.stroke()
+
+      } else if (data.type === 'shape_done') {
+        ctx.globalCompositeOperation = 'source-over'
+        if (data.tool === 'rectangle') {
+          ctx.beginPath()
+          ctx.strokeRect(data.startPos.x, data.startPos.y,
+            data.endPos.x - data.startPos.x,
+            data.endPos.y - data.startPos.y)
+        } else if (data.tool === 'circle') {
+          const radius = Math.sqrt(
+            Math.pow(data.endPos.x - data.startPos.x, 2) +
+            Math.pow(data.endPos.y - data.startPos.y, 2)
+          )
+          ctx.beginPath()
+          ctx.arc(data.startPos.x, data.startPos.y, radius, 0, 2 * Math.PI)
+          ctx.stroke()
+        } else if (data.tool === 'line') {
+          ctx.beginPath()
+          ctx.moveTo(data.startPos.x, data.startPos.y)
+          ctx.lineTo(data.endPos.x, data.endPos.y)
+          ctx.stroke()
+        }
+      }
     }
   }))
 
-  // Save canvas state to history after each stroke
   const saveHistory = () => {
     const canvas = canvasRef.current
     const newHistory = history.slice(0, historyIndex + 1)
@@ -49,7 +93,6 @@ const Canvas = forwardRef(({ tool, color, brushSize }, ref) => {
     setHistoryIndex(newHistory.length - 1)
   }
 
-  // Get mouse position relative to canvas
   const getPos = (e) => {
     const canvas = canvasRef.current
     const rect = canvas.getBoundingClientRect()
@@ -63,13 +106,10 @@ const Canvas = forwardRef(({ tool, color, brushSize }, ref) => {
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     const pos = getPos(e)
-
     isDrawing.current = true
     lastPos.current = pos
     startPos.current = pos
 
-    // For shapes, save a snapshot of canvas BEFORE drawing
-    // so we can redraw cleanly as the mouse moves
     if (tool !== 'pencil' && tool !== 'eraser') {
       snapshot.current = ctx.getImageData(0, 0, canvas.width, canvas.height)
     }
@@ -92,6 +132,16 @@ const Canvas = forwardRef(({ tool, color, brushSize }, ref) => {
       ctx.moveTo(lastPos.current.x, lastPos.current.y)
       ctx.lineTo(pos.x, pos.y)
       ctx.stroke()
+
+      // Send this stroke segment to backend
+      sendDrawEvent({
+        type: 'draw',
+        tool: 'pencil',
+        from: lastPos.current,
+        to: pos,
+        color,
+        brushSize
+      })
       lastPos.current = pos
 
     } else if (tool === 'eraser') {
@@ -100,11 +150,18 @@ const Canvas = forwardRef(({ tool, color, brushSize }, ref) => {
       ctx.moveTo(lastPos.current.x, lastPos.current.y)
       ctx.lineTo(pos.x, pos.y)
       ctx.stroke()
+
+      sendDrawEvent({
+        type: 'draw',
+        tool: 'eraser',
+        from: lastPos.current,
+        to: pos,
+        color,
+        brushSize
+      })
       lastPos.current = pos
 
     } else {
-      // For shapes: restore snapshot first, then draw fresh shape
-      // This prevents the "ghost shapes" problem while dragging
       ctx.putImageData(snapshot.current, 0, 0)
       ctx.globalCompositeOperation = 'source-over'
       ctx.strokeStyle = color
@@ -115,15 +172,13 @@ const Canvas = forwardRef(({ tool, color, brushSize }, ref) => {
       if (tool === 'rectangle') {
         ctx.beginPath()
         ctx.strokeRect(startX, startY, pos.x - startX, pos.y - startY)
-
       } else if (tool === 'circle') {
-        ctx.beginPath()
         const radius = Math.sqrt(
           Math.pow(pos.x - startX, 2) + Math.pow(pos.y - startY, 2)
         )
+        ctx.beginPath()
         ctx.arc(startX, startY, radius, 0, 2 * Math.PI)
         ctx.stroke()
-
       } else if (tool === 'line') {
         ctx.beginPath()
         ctx.moveTo(startX, startY)
@@ -133,9 +188,22 @@ const Canvas = forwardRef(({ tool, color, brushSize }, ref) => {
     }
   }
 
-  const stopDrawing = () => {
+  const stopDrawing = (e) => {
     if (!isDrawing.current) return
     isDrawing.current = false
+
+    // Send final shape position when mouse is released
+    if (tool !== 'pencil' && tool !== 'eraser') {
+      const pos = getPos(e)
+      sendDrawEvent({
+        type: 'shape_done',
+        tool,
+        startPos: startPos.current,
+        endPos: pos,
+        color,
+        brushSize
+      })
+    }
     saveHistory()
   }
 
