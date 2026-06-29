@@ -1,25 +1,32 @@
-import { useState, useEffect } from 'react'
-import axios from 'axios'
+import { useState, useRef } from 'react'
+import Canvas from './components/Canvas'
+import Toolbar from './components/Toolbar'
 import './App.css'
 
 function App() {
-  const [backendStatus, setBackendStatus] = useState('Checking...')
+  // These are the shared states — Toolbar controls them, Canvas uses them
+  const [tool, setTool] = useState('pencil')
+  const [color, setColor] = useState('#000000')
+  const [brushSize, setBrushSize] = useState(5)
 
-  // This runs once when the app loads
-  useEffect(() => {
-    axios.get('http://localhost:8000/test')
-      .then(response => {
-        setBackendStatus(response.data.data)
-      })
-      .catch(error => {
-        setBackendStatus('Backend not reachable!')
-      })
-  }, [])
+  // This gives us direct access to Canvas's undo/redo functions
+  const canvasRef = useRef(null)
 
   return (
-    <div className="app">
-      <h1>Collaborative Whiteboard</h1>
-      <p>Backend status: {backendStatus}</p>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+      <Toolbar
+        tool={tool} setTool={setTool}
+        color={color} setColor={setColor}
+        brushSize={brushSize} setBrushSize={setBrushSize}
+        onUndo={() => canvasRef.current?.undo()}
+        onRedo={() => canvasRef.current?.redo()}
+      />
+      <Canvas
+        ref={canvasRef}
+        tool={tool}
+        color={color}
+        brushSize={brushSize}
+      />
     </div>
   )
 }
