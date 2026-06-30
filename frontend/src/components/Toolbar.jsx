@@ -4,7 +4,7 @@ const COLORS = [
   '#4a90e2', '#9013fe', '#8B4513'
 ]
 
-function Toolbar({ tool, setTool, color, setColor, brushSize, setBrushSize, onUndo, onRedo }) {
+function Toolbar({ tool, setTool, color, setColor, brushSize, setBrushSize, onUndo, onRedo, onClear }) {
   return (
     <div style={{
       width: '110px',
@@ -97,6 +97,12 @@ function Toolbar({ tool, setTool, color, setColor, brushSize, setBrushSize, onUn
         width: '90px', padding: '8px', background: '#16213e',
         color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px'
       }}>↪️ Redo</button>
+
+      <button onClick={onClear} style={{
+      width: '90px', padding: '8px', background: '#7a1f2b',
+      color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px',
+      marginTop: '10px'
+      }}>🗑️ Clear All</button>
 
     </div>
   )

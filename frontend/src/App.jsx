@@ -32,10 +32,14 @@ function App() {
     canvasRef.current?.drawFromRemote(data)
   }
 
-  const { sendDrawEvent } = useWhiteboardSocket(
-    roomCode,
-    handleDrawReceived
-  )
+ const [activeUsers, setActiveUsers] = useState([])
+
+const { sendDrawEvent } = useWhiteboardSocket(
+  roomCode,
+  user?.display_name || 'Anonymous',
+  handleDrawReceived,
+  setActiveUsers
+)
 
   const handleLogout = () => {
     localStorage.removeItem('token')
@@ -69,6 +73,11 @@ function App() {
         brushSize={brushSize} setBrushSize={setBrushSize}
         onUndo={() => canvasRef.current?.undo()}
         onRedo={() => canvasRef.current?.redo()}
+
+        onClear={() => {
+        canvasRef.current?.clear()
+        sendDrawEvent({ type: 'clear' })
+          }}
       />
       <div style={{ flex: 1, position: 'relative' }}>
         <div style={{
@@ -81,6 +90,8 @@ function App() {
           <span>Room: {roomCode}</span>
           <span style={{ color: '#a8a8b3' }}>|</span>
           <span>{user.display_name}</span>
+          <span style={{ color: '#a8a8b3' }}>|</span>
+          <span>👥 {activeUsers.length} online: {activeUsers.join(', ')}</span> 
           <span
             onClick={() => setRoomCode(null)}
             style={{ color: '#a8a8b3', cursor: 'pointer', fontSize: '12px' }}

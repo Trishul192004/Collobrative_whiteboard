@@ -10,6 +10,12 @@ const Canvas = forwardRef(({ tool, color, brushSize, sendDrawEvent, roomCode }, 
   const [historyIndex, setHistoryIndex] = useState(-1)
 
   useImperativeHandle(ref, () => ({
+    clear() {
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    saveHistory()
+      },
     undo() {
       if (historyIndex <= 0) return
       const canvas = canvasRef.current
@@ -39,8 +45,14 @@ const Canvas = forwardRef(({ tool, color, brushSize, sendDrawEvent, roomCode }, 
 
     // This is called when we receive a draw event from another user
     drawFromRemote(data) {
+
       const canvas = canvasRef.current
       const ctx = canvas.getContext('2d')
+      if (data.type === 'clear') {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      return
+        }
+
       ctx.lineWidth = data.brushSize
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
