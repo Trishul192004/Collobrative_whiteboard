@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Text
 from sqlalchemy.engine import URL
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
@@ -45,6 +45,13 @@ class RoomMember(Base):
     id = Column(Integer, primary_key=True, index=True)
     room_id = Column(Integer, ForeignKey("rooms.id"))
     user_id = Column(Integer, ForeignKey("users.id"))
+
+class WhiteboardState(Base):
+    __tablename__ = "whiteboard_states"
+    id = Column(Integer, primary_key=True, index=True)
+    room_id = Column(Integer, ForeignKey("rooms.id"))
+    canvas_data = Column(Text(5000000))  # base64 image data
+    updated_at = Column(DateTime, default=datetime.utcnow)
 
 # This creates all tables in MySQL automatically
 def init_db():

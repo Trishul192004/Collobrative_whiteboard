@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from models.database import Room, RoomMember, get_db
+
+from models.database import Room, RoomMember, WhiteboardState, get_db
 from jose import jwt
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
 import random
 import string
-
 router = APIRouter(prefix="/rooms", tags=["rooms"])
 security = HTTPBearer()
 SECRET_KEY = os.getenv("SECRET_KEY", "fallbacksecret")
@@ -75,3 +75,43 @@ def join_room(
         db.commit()
 
     return {"room_code": room.room_code, "room_id": room.id}
+    
+class SaveBoardRequest(BaseModel):
+    canvas_data: str
+
+@router.post("/{room_code}/save")
+def save_board(
+    room_code: str,
+    req: SaveBoardRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    room = db.query(Room).filter(Room.room_code == room_code.upper()).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    existing = db.query(WhiteboardState).filter(WhiteboardState.room_id == room.id).first()
+    if existing:
+        existing.canvas_data = req.canvas_data
+    else:
+        existing = WhiteboardState(room_id=room.id, canvas_data=req.canvas_data)
+        db.add(existing)
+
+    db.commit()
+    return {"status": "saved"}
+
+@router.get("/{room_code}/load")
+def load_board(
+    room_code: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    room = db.query(Room).filter(Room.room_code == room_code.upper()).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    state = db.query(WhiteboardState).filter(WhiteboardState.room_id == room.id).first()
+    if not state:
+        return {"canvas_data": None}
+
+    return {"canvas_data": state.canvas_data}
