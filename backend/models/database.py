@@ -1,4 +1,5 @@
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy.engine import URL
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from dotenv import load_dotenv
@@ -7,10 +8,15 @@ import os
 
 load_dotenv()
 
-# Build the database connection URL
-DATABASE_URL = (
-    f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
-    f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+# Build the database connection URL safely so special characters in the
+# password (such as @) do not break URL parsing.
+DATABASE_URL = URL.create(
+    drivername="mysql+pymysql",
+    username=os.getenv("DB_USER"),
+    password=os.getenv("DB_PASSWORD"),
+    host=os.getenv("DB_HOST"),
+    port=int(os.getenv("DB_PORT", "3306")),
+    database=os.getenv("DB_NAME"),
 )
 
 engine = create_engine(DATABASE_URL)

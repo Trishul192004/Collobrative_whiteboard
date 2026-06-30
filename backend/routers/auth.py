@@ -9,7 +9,7 @@ import os
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 SECRET_KEY = os.getenv("SECRET_KEY", "fallbacksecret")
 ALGORITHM = "HS256"
 

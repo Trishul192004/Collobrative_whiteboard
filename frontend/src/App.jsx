@@ -1,72 +1,59 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Canvas from './components/Canvas'
 import Toolbar from './components/Toolbar'
+import Auth from './components/Auth'
+import Lobby from './components/Lobby'
 import useWhiteboardSocket from './hooks/useWebSocket'
 import './App.css'
 
 function App() {
+  const [user, setUser] = useState(null)
+  const [roomCode, setRoomCode] = useState(null)
   const [tool, setTool] = useState('pencil')
   const [color, setColor] = useState('#000000')
   const [brushSize, setBrushSize] = useState(5)
-  const [roomCode, setRoomCode] = useState('')
-  const [joined, setJoined] = useState(false)
-  const [inputCode, setInputCode] = useState('')
 
   const canvasRef = useRef(null)
 
-  // When we receive a draw event from another user, draw it on canvas
+  // Check if user is already logged in (from localStorage)
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user')
+    if (savedUser) setUser(JSON.parse(savedUser))
+  }, [])
+
   const handleDrawReceived = (data) => {
     canvasRef.current?.drawFromRemote(data)
   }
 
   const { sendDrawEvent } = useWhiteboardSocket(
-    joined ? roomCode : null,
+    roomCode,
     handleDrawReceived
   )
 
-  const joinRoom = () => {
-    if (inputCode.trim()) {
-      setRoomCode(inputCode.trim().toUpperCase())
-      setJoined(true)
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    setUser(null)
+    setRoomCode(null)
   }
 
-  // Show join screen if not in a room yet
-  if (!joined) {
+  // Page 1: Not logged in
+  if (!user) {
+    return <Auth onLogin={setUser} />
+  }
+
+  // Page 2: Logged in but not in a room
+  if (!roomCode) {
     return (
-      <div style={{
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        height: '100vh', background: '#1a1a2e', gap: '20px'
-      }}>
-        <h1 style={{ color: '#e94560', fontSize: '2rem' }}>
-          Collaborative Whiteboard
-        </h1>
-        <p style={{ color: '#a8a8b3' }}>Enter a room code to start drawing together</p>
-        <input
-          value={inputCode}
-          onChange={e => setInputCode(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && joinRoom()}
-          placeholder="Enter room code e.g. ABC123"
-          style={{
-            padding: '12px 20px', fontSize: '16px', borderRadius: '8px',
-            border: '2px solid #e94560', background: '#16213e',
-            color: 'white', outline: 'none', width: '300px', textAlign: 'center'
-          }}
-        />
-        <button
-          onClick={joinRoom}
-          style={{
-            padding: '12px 40px', fontSize: '16px', borderRadius: '8px',
-            background: '#e94560', color: 'white', border: 'none', cursor: 'pointer'
-          }}
-        >
-          Join Room
-        </button>
-      </div>
+      <Lobby
+        user={user}
+        onJoinRoom={setRoomCode}
+        onLogout={handleLogout}
+      />
     )
   }
 
+  // Page 3: In the whiteboard room
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <Toolbar
@@ -77,14 +64,22 @@ function App() {
         onRedo={() => canvasRef.current?.redo()}
       />
       <div style={{ flex: 1, position: 'relative' }}>
-        {/* Room code display */}
         <div style={{
           position: 'absolute', top: '10px', right: '10px',
           background: '#1a1a2e', color: '#e94560',
           padding: '8px 15px', borderRadius: '8px',
-          fontSize: '14px', fontWeight: 'bold', zIndex: 10
+          fontSize: '14px', fontWeight: 'bold', zIndex: 10,
+          display: 'flex', gap: '15px', alignItems: 'center'
         }}>
-          Room: {roomCode}
+          <span>Room: {roomCode}</span>
+          <span style={{ color: '#a8a8b3' }}>|</span>
+          <span>{user.display_name}</span>
+          <span
+            onClick={() => setRoomCode(null)}
+            style={{ color: '#a8a8b3', cursor: 'pointer', fontSize: '12px' }}
+          >
+            Leave
+          </span>
         </div>
         <Canvas
           ref={canvasRef}
