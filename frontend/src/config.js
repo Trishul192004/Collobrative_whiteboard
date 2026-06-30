@@ -1,3 +1,3 @@
 // Change this single line whenever ngrok URL changes
-export const API_URL = 'https://expose-radial-praising.ngrok-free.dev'
-export const WS_URL = 'wss://expose-radial-praising.ngrok-free.dev'
+export const API_URL = 'http://localhost:8000'
+export const WS_URL = 'ws://localhost:8000'
