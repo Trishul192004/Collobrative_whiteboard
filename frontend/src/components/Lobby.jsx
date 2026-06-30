@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import axios from 'axios'
 
-const API = 'http://localhost:8000'
+import { API_URL } from '../config'
 
 function Lobby({ user, onJoinRoom, onLogout }) {
   const [roomCode, setRoomCode] = useState('')
@@ -11,14 +11,23 @@ function Lobby({ user, onJoinRoom, onLogout }) {
   const token = localStorage.getItem('token')
   const headers = { Authorization: `Bearer ${token}` }
 
+  const getRequestErrorMessage = (err, fallbackMessage) => {
+    // No HTTP response means the API host is unreachable (backend down / tunnel offline).
+    if (!err.response) return 'Backend is unreachable. Start backend/ngrok and try again.'
+
+    if (err.response.status === 401) return 'Session expired. Please login again.'
+
+    return err.response?.data?.detail || fallbackMessage
+  }
+
   const createRoom = async () => {
     setError('')
     setLoading(true)
     try {
-      const res = await axios.post(`${API}/rooms/create`, {}, { headers })
+      const res = await axios.post(`${API_URL}/rooms/create`, {}, { headers })
       onJoinRoom(res.data.room_code)
     } catch (err) {
-      setError(err.response?.data?.detail || 'Could not create room')
+      setError(getRequestErrorMessage(err, 'Could not create room'))
     }
     setLoading(false)
   }
@@ -28,10 +37,10 @@ function Lobby({ user, onJoinRoom, onLogout }) {
     setError('')
     setLoading(true)
     try {
-      const res = await axios.post(`${API}/rooms/join/${roomCode.trim()}`, {}, { headers })
+      const res = await axios.post(`${API_URL}/rooms/join/${roomCode.trim()}`, {}, { headers })
       onJoinRoom(res.data.room_code)
     } catch (err) {
-      setError(err.response?.data?.detail || 'Room not found')
+      setError(getRequestErrorMessage(err, 'Room not found'))
     }
     setLoading(false)
   }

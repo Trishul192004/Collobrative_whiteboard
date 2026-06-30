@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
+import { WS_URL } from '../config'
 
 function useWhiteboardSocket(roomCode, onDrawReceived) {
   const ws = useRef(null)  // holds the WebSocket connection
@@ -7,7 +8,7 @@ function useWhiteboardSocket(roomCode, onDrawReceived) {
     if (!roomCode) return
 
     // Connect to the backend WebSocket
-    ws.current = new WebSocket(`ws://localhost:8000/ws/${roomCode}`)
+    ws.current = new WebSocket(`${WS_URL}/ws/${roomCode}`)
 
     ws.current.onopen = () => {
       console.log(`Connected to room: ${roomCode}`)

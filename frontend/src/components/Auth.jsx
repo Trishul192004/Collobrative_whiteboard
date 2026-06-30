@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import axios from 'axios'
 
-const API = 'http://localhost:8000'
-
+//const API = 'http://localhost:8000'
+import { API_URL } from '../config'
 function Auth({ onLogin }) {
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState('')
@@ -11,11 +11,16 @@ function Auth({ onLogin }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const getAuthErrorMessage = (err) => {
+    if (!err.response) return 'Backend is unreachable. Start backend/ngrok and try again.'
+    return err.response?.data?.detail || 'Something went wrong'
+  }
+
   const handleSubmit = async () => {
     setError('')
     setLoading(true)
     try {
-      const url = isLogin ? `${API}/auth/login` : `${API}/auth/register`
+      const url = isLogin ? `${API_URL}/auth/login` : `${API_URL}/auth/register`
       const body = isLogin
         ? { email, password }
         : { email, password, display_name: displayName }
@@ -25,7 +30,7 @@ function Auth({ onLogin }) {
       localStorage.setItem('user', JSON.stringify(res.data.user))
       onLogin(res.data.user)
     } catch (err) {
-      setError(err.response?.data?.detail || 'Something went wrong')
+      setError(getAuthErrorMessage(err))
     }
     setLoading(false)
   }
